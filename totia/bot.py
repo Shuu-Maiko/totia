@@ -17,10 +17,22 @@ class TotiaBot(commands.Bot):
         await self.load_extension("totia.cogs.general")
 
     async def on_message(self, message):
-        if message.author == self.user:
-            return
-        if message.channel.id != settings.CHANNEL_ID:
-            return
+        if(self.user == None): 
+            return 
+
+        selfMessage = message.author == self.user 
+        notCorrectChannel = message.channel.id != settings.CHANNEL_ID
+        messageIsFromBot = message.author.bot 
+        repliedToOtherUser = message.reference and message.reference.resolved and message.reference.resolved.author.id != (self.user and self.user.id)
+        repliedToOtherUser = (
+            message.reference and 
+            message.reference.resolved and 
+            message.reference.resolved.author.id != self.user.id
+        )
+        isWebhook = message.webhook_id
+
+        if(any((selfMessage,notCorrectChannel,messageIsFromBot,repliedToOtherUser, isWebhook))):
+            return 
         
         await self.process_commands(message)
 
@@ -28,7 +40,8 @@ class TotiaBot(commands.Bot):
             return
 
         async with message.channel.typing():
-            response = self.gemini_chat.send_message(str(message.content))
+            cleanedMessage = message.clean_content
+            response = self.gemini_chat.send_message(str(cleanedMessage))
         await message.reply(response.text)
 
     async def on_member_join(self, member):
