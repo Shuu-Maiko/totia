@@ -1,8 +1,11 @@
 import discord
 from discord.ext import commands
 import logging
+
+from .history import history
 from .config import settings
 from . import client
+
 
 class TotiaBot(commands.Bot):
     def __init__(self):
@@ -41,7 +44,15 @@ class TotiaBot(commands.Bot):
 
         async with message.channel.typing():
             cleanedMessage = message.clean_content
-            response = self.gemini_chat.send_message(str(cleanedMessage))
+            prompt = f'''
+                last 20 chats : {history.get_history()}
+                the new message : { message.author.name } : {cleanedMessage}
+            '''
+            print(prompt)
+            response = self.gemini_chat.send_message(prompt)
+            history.remember(message.author.name , cleanedMessage)
+            history.remember(self.user.name , response.text)
+
         await message.reply(response.text)
 
     async def on_member_join(self, member):
