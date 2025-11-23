@@ -49,11 +49,22 @@ class TotiaBot(commands.Bot):
                 the new message : { message.author.name } : {cleanedMessage}
             '''
             print(prompt)
-            response = self.gemini_chat.send_message(prompt)
-            history.remember(message.author.name , cleanedMessage)
-            history.remember(self.user.name , response.text)
+            final_response = None
+            for attempt in range(3):
+                try:
+                    response = self.gemini_chat.send_message(prompt)
+                    if response.text:
+                        final_response = response.text
+                        break
+                except Exception as e :
+                    print(f"[WARN] Attempt {attempt+1} failed : {e}")
+            if not final_response:
+                final_response = "Some problem with pur systems, Thank you for using "
 
-        await message.reply(response.text)
+            history.remember(message.author.name , cleanedMessage)
+            history.remember(self.user.name , final_response)
+
+        await message.reply(final_response)
 
     async def on_member_join(self, member):
         await member.send(f"Welcome to the server {member.name}")
