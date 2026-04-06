@@ -54,13 +54,14 @@ class TotiaBot(commands.Bot):
                 # Ping every 10 minutes (safety margin for Render's 15-min limit)
                 await asyncio.sleep(600)
 
-    async def on_ready(self):
-        print(f"Logged in as {self.user.name if self.user else 'iwbot'}")
-        await self.load_extension("totia.cogs.general")
-        
-        # Start Render-specific tasks
+    async def setup_hook(self):
+        """Called before the bot logs in, perfect for starting background tasks instantly."""
         self.loop.create_task(self.setupHttpServer())
         self.loop.create_task(self.runKeepAlive())
+        await self.load_extension("totia.cogs.general")
+
+    async def on_ready(self):
+        print(f"Logged in as {self.user.name if self.user else 'iwbot'}")
 
     async def on_message(self, message: discord.Message):
         if not self.user or message.author == self.user: 
