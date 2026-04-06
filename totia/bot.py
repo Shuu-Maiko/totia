@@ -22,15 +22,6 @@ class TotiaBot(commands.Bot):
             collectionName="discord_memories", 
         )
 
-    async def setupHttpServer(self):
-        """Standard HTTP health check listener for Render's free tier."""
-        app = web.Application()
-        app.router.add_get("/", lambda r: web.Response(text="OK"))
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "0.0.0.0", settings.PORT)
-        await site.start()
-        print(f"[HTTP] Health check server active on port {settings.PORT}")
 
     async def runKeepAlive(self):
         """Periodically pings the bot's own URL to prevent Render from spinning down."""
@@ -56,7 +47,6 @@ class TotiaBot(commands.Bot):
 
     async def setup_hook(self):
         """Called before the bot logs in, perfect for starting background tasks instantly."""
-        self.loop.create_task(self.setupHttpServer())
         self.loop.create_task(self.runKeepAlive())
         await self.load_extension("totia.cogs.general")
 
