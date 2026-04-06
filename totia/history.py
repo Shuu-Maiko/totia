@@ -1,17 +1,14 @@
 from collections import deque
 
 class History():
-    def __init__(self, max_history = 20):
-        self.prev = deque(maxlen=max_history)
-        self.max_history = max_history
+    def __init__(self, maxHistory: int = 20):
+        self.prev = deque(maxlen=maxHistory)
+        self.maxHistory = maxHistory
 
-    def remember(self, user , message):
+    def remember(self, user: str, message: str):
         self.prev.append(f"{user} : {message}")
         
-    def get_history(self):
-        print('\n'.join(self.prev))
+    def getHistory(self) -> str:
         return '\n'.join(self.prev)
 
-
 history = History()
-    

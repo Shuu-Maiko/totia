@@ -1,43 +1,93 @@
-# Totia Discord Bot
+# Totia
 
-A simple Discord bot that uses Google's Gemini AI to interact with users in a specific channel.
+**The Autonomous Discord AI Agent with Semantic Memory and Dynamic Tool-Calling.**
 
-## Setup
+Totia is a high-performance Discord companion that evolves from a simple LLM wrapper into a stateful AI agent. It intelligently searches the web, retrieves channel metadata, and navigates chat history to provide context-aware, style-matched responses.
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/Shuu-Maiko/totia.git 
-    cd totia
-    ```
+---
 
-2.  **Create a virtual environment:**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
+## What Is This?
 
-3.  **Install the dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+Totia is an **adaptive AI agent** that uses a "Think-Act-Observe" loop to interact with users. It implements:
 
-4.  **Set up your environment variables:**
+- **Autonomous Tool-Calling** — Real-time web searching, history retrieval, and metadata fetching.
+- **Vector Memory Store** — Semantic recall using `sentence-transformers` for long-term personal context.
+- **Adaptive Style Matching** — Dynamic mirroring of user tone, vocabulary, and emoji usage.
+- **Render-Ready Architecture** — Internal health-check server and self-ping keep-alive for zero-downtime hosting.
+- **Provider Agnostic** — Support for **Google Gemini** and **Groq (Llama-3)** intelligence layers.
 
-    Create a `.env` file in the root of the project by copying the example file:
-    ```bash
-    cp .env.example .env
-    ```
+---
 
-    Now, open the `.env` file and add your specific credentials:
+## System Architecture
 
-    -   `DISCORD_TOKEN`: Your Discord bot token.
-    -   `CHANNEL_ID`: The ID of the channel you want the bot to be active in.
-    -   `GEMINI_API_KEY`: Your Google Generative AI API key.
+| Component | Responsibility |
+| :--- | :--- |
+| [bot.py](totia/bot.py) | **Transport Layer** — Handles Discord gateway events and HTTP health checks. |
+| [client.py](totia/client.py) | **Intelligence Layer** — Orchestrates the LLM tool-calling loop (Think-Act-Observe). |
+| [tools.py](totia/tools.py) | **Domain Layer** — Encapsulates capabilities (Web Search, Discord API Interaction). |
+| [memory.py](totia/memory.py) | **Persistence Layer** — Vectorizes and stores long-term semantic context. |
+| [history.py](totia/history.py) | **Buffer Layer** — Manages rolling short-term chat window. |
 
-## Usage
+---
 
-Once you have completed the setup, you can run the bot with the following command:
+## Technical Capabilities
+
+### Agent Tools Reference
+
+| Tool | Purpose | Output |
+| :--- | :--- | :--- |
+| `searchWeb` | Real-time DuckDuckGo information retrieval. | Formatted web snippets. |
+| `searchChannel` | Contextual keyword/user search in recent history. | Message log snapshots. |
+| `getChannelInfo` | Retrieval of current channel IDs and metadata. | Channel properties. |
+| `getServerInfo` | Retrieval of guild stats and member count. | Server properties. |
+| `clearMemory` | Administrative reset of user-specific vector store. | Status message. |
+| `getCurrentTime` | Synchronization with real-world time-awareness. | Formatted timestamp. |
+
+---
+
+## Deployment & Setup
+
+### Requirements
+- **Python 3.10+** (standard for stable Render/Linux environments).
+- **Dependencies**: Pruned [requirements.txt](requirements.txt) (only 15 core packages).
+
+### Local Development
 
 ```bash
-python3 -m totia
+# Clone and enter the repository
+cd totia
+
+# Install dependencies in a venv
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Start the bot
+python -m totia
 ```
+
+### Render.com Configuration
+
+Totia is built for Render's Free Tier with a built-in "Keep-Alive" heartbeat:
+
+1. **Start Command**: `python -m totia`
+2. **Health Check Port**: `8080` (or `$PORT`)
+3. **Keep-Alive**: Set `RENDER_URL` in the dashboard to your app's link (e.g. `https://totia.onrender.com`) to enable the rhythmic self-ping.
+
+---
+
+## Configuration Reference
+
+| Variable | Type | Description |
+| :--- | :--- | :--- |
+| `DISCORD_TOKEN` | Secret | Your Discord Bot application token. |
+| `CHANNEL_ID` | Number | The target channel for bot activity. |
+| `LLM_PROVIDER` | Enum | `gemini` or `groq`. |
+| `GEMINI_API_KEY` | Secret | Required if `LLM_PROVIDER=gemini`. |
+| `GROQ_API_KEY` | Secret | Required if `LLM_PROVIDER=groq`. |
+| `RENDER_URL` | URL | Your public app URL for self-ping logic. |
+
+---
+
+> [!NOTE]
+> **Coding Standard**: Totia uses `camelCase` for all variables and functions. Strict minimalism and zero redundant comments are enforced repository-wide.

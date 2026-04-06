@@ -6,6 +6,17 @@ class Settings(BaseSettings):
 
     DISCORD_TOKEN: str
     CHANNEL_ID: int
-    GEMINI_API_KEY: str
+    GEMINI_API_KEY: str = ""
+    GROQ_API_KEY: str = ""
+    LLM_PROVIDER: str = "gemini"
+    LLM_MODEL: str = ""
+
+    MEMORY_DIR: str = "data/memory"
+    MEMORY_TOP_K: int = 10
+    MEMORY_MIN_SCORE: float = 0.15
+
+    # Render / HTTP Settings
+    PORT: int = 8080
+    RENDER_URL: str = ""
 
 settings = Settings()
