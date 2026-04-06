@@ -30,10 +30,12 @@ async def getTools(bot: commands.Bot, contextChannel: Optional[discord.abc.Messa
             return f"Search error: {str(e)}"
 
     @tool
-    async def getUserInfo(userId: Optional[str] = None) -> str:
-        """Fetch Discord user details (name, join date, ID)."""
+    async def getUserInfo(userId: str) -> str:
+        """Fetch Discord user details (name, join date, ID). Provide user ID to look up."""
         try:
-            user = bot.get_user(int(userId)) or await bot.fetch_user(int(userId)) if userId else bot.user
+            if not userId:
+                return "Please provide a valid numeric userId."
+            user = bot.get_user(int(userId)) or await bot.fetch_user(int(userId))
             if not user: return "Not found."
             return f"User: {user.name} (ID: {user.id}), Created: {user.created_at}"
         except Exception as e:
@@ -54,12 +56,12 @@ async def getTools(bot: commands.Bot, contextChannel: Optional[discord.abc.Messa
         return f"Server: {guild.name} (ID: {guild.id}, Members: {guild.member_count})"
 
     @tool
-    async def searchChannel(query: Optional[str] = None, userId: Optional[str] = None, limit: int = 50) -> str:
+    async def searchChannel(query: str, userId: str = "") -> str:
         """Search recent chat history for keywords or user messages."""
         if not contextChannel: return "No context."
         found = []
         try:
-            async for msg in contextChannel.history(limit=min(limit, 100)):
+            async for msg in contextChannel.history(limit=50):
                 if userId and str(msg.author.id) != str(userId): continue
                 if query and query.lower() not in msg.content.lower(): continue
                 found.append(f"{msg.author.name}: {msg.clean_content}")

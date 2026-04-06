@@ -11,10 +11,10 @@ Totia is a high-performance Discord companion that evolves from a simple LLM wra
 Totia is an **adaptive AI agent** that uses a "Think-Act-Observe" loop to interact with users. It implements:
 
 - **Autonomous Tool-Calling** — Real-time web searching, history retrieval, and metadata fetching.
-- **Vector Memory Store** — Semantic recall using `sentence-transformers` for long-term personal context.
-- **Adaptive Style Matching** — Dynamic mirroring of user tone, vocabulary, and emoji usage.
+- **SQLite Vector Memory** — Infinite-scale semantic recall using local `sentence-transformers` stored in highly compressed binary BLOBs to bypass API quotas.
+- **Organic Personality Vibe** — Stripped of corporate cringe and emoji spam, mirroring the user's natural lowercase typing style accurately.
+- **High-Availability AI Failover** — Primary intelligence via **Groq (Llama-3)** with real-time tool error interception. If quotas exceed, instantly falls back to **Google Gemini**.
 - **Render-Ready Architecture** — Internal health-check server and self-ping keep-alive for zero-downtime hosting.
-- **Provider Agnostic** — Support for **Google Gemini** and **Groq (Llama-3)** intelligence layers.
 
 ---
 
@@ -24,9 +24,9 @@ Totia is an **adaptive AI agent** that uses a "Think-Act-Observe" loop to intera
 | :--- | :--- |
 | [bot.py](totia/bot.py) | **Transport Layer** — Handles Discord gateway events and HTTP health checks. |
 | [client.py](totia/client.py) | **Intelligence Layer** — Orchestrates the LLM tool-calling loop (Think-Act-Observe). |
-| [tools.py](totia/tools.py) | **Domain Layer** — Encapsulates capabilities (Web Search, Discord API Interaction). |
-| [memory.py](totia/memory.py) | **Persistence Layer** — Vectorizes and stores long-term semantic context. |
-| [history.py](totia/history.py) | **Buffer Layer** — Manages rolling short-term chat window. |
+| [tools.py](totia/tools.py) | **Domain Layer** — Encapsulates capabilities with strict Pydantic typings to mitigate LLM hallucinations. |
+| [memory.py](totia/memory.py) | **Persistence Layer** — SQLite transactional database managing local vector arrays. |
+| [history.py](totia/history.py) | **Buffer Layer** — Manages rolling short-term chat window context. |
 
 ---
 

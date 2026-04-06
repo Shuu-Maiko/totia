@@ -1,69 +1,95 @@
-import json
+import sqlite3
 import os
 import time
+import asyncio
 import numpy as np
 from typing import List, Dict, Any, Optional
 from sentence_transformers import SentenceTransformer
+import torch
+
+torch.set_num_threads(1)
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 class MemoryStore:
     def __init__(self, persistDirectory: str = "data/memory", collectionName: str = "discord_memories", embeddingModel: str = "all-MiniLM-L6-v2"):
-        """Initialize Memory Store using JSON and Numpy."""
+        """Initialize Memory Store using SQLite and local SentenceTransformers."""
         self.persistDirectory = persistDirectory
         self.collectionName = collectionName
-        self.filePath = os.path.join(self.persistDirectory, f"{self.collectionName}.json")
+        self.dbPath = os.path.join(self.persistDirectory, f"{self.collectionName}.db")
         
         os.makedirs(self.persistDirectory, exist_ok=True)
+        self._initDb()
         
-        print(f"[MEMORY] Loading {embeddingModel}...")
+        print(f"[MEMORY] Loading local model {embeddingModel}...")
         self.model = SentenceTransformer(embeddingModel)
+
+    def _initDb(self):
+        """Create the SQLite database and schema if it does not exist."""
+        conn = sqlite3.connect(self.dbPath)
+        cursor = conn.cursor()
+        # Create memories table with strict typing
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS memories (
+                id TEXT PRIMARY KEY,
+                userId TEXT NOT NULL,
+                userName TEXT NOT NULL,
+                text TEXT NOT NULL,
+                timestamp REAL NOT NULL,
+                embedding BLOB NOT NULL
+            )
+        ''')
+        # Index on userId for instant query lookups regardless of database size
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON memories(userId)")
+        conn.commit()
         
-        self.memories = []
-        self._load()
+        # Count loaded DB elements
+        cursor.execute("SELECT COUNT(*) FROM memories")
+        count = cursor.fetchone()[0]
+        print(f"[MEMORY DB] Connected to SQLite. Local memories: {count}")
+        conn.close()
 
-    def _load(self):
-        """Load memories from JSON file."""
-        if os.path.exists(self.filePath):
-            with open(self.filePath, 'r', encoding='utf-8') as f:
-                try:
-                    data = json.load(f)
-                    self.memories = data.get('memories', [])
-                    print(f"[MEMORY] Loaded {len(self.memories)} memories.")
-                except json.JSONDecodeError:
-                    self.memories = []
-
-    def _save(self):
-        """Save memories to JSON file."""
-        with open(self.filePath, 'w', encoding='utf-8') as f:
-            json.dump({'memories': self.memories}, f, ensure_ascii=False, indent=2)
-
-    def store(self, userId: str, userName: str, text: str) -> None:
-        """Store a message in the vector database."""
+    async def astore(self, userId: str, userName: str, text: str) -> None:
+        """Store a message and its vector as a binary BLOB in SQLite."""
         timestamp = time.time()
-        embedding = self.model.encode(text).tolist()
         
-        memoryItem = {
-            "id": f"{userId}_{timestamp}",
-            "userId": str(userId),
-            "userName": userName,
-            "text": text,
-            "timestamp": timestamp,
-            "embedding": embedding
-        }
+        # Offload CPU-heavy local encoding to background thread
+        embeddingArray = await asyncio.to_thread(self.model.encode, text, convert_to_numpy=True)
         
-        self.memories.append(memoryItem)
-        self._save()
+        # Convert float array to pure binary bytes for high-efficiency disk storage
+        embeddingBlob = embeddingArray.astype(np.float32).tobytes()
+        memoryId = f"{userId}_{timestamp}"
 
-    def recall(self, userId: str, query: str, topK: int = 5, minScore: float = 0.4) -> List[str]:
-        """Retrieve relevant past messages for a user using cosine similarity."""
-        if not query or not self.memories:
+        conn = sqlite3.connect(self.dbPath)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO memories (id, userId, userName, text, timestamp, embedding)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (memoryId, str(userId), userName, text, timestamp, embeddingBlob))
+        conn.commit()
+        conn.close()
+
+    async def arecall(self, userId: str, query: str, topK: int = 5, minScore: float = 0.4) -> List[str]:
+        """Fetch a specific user's binary memory BLOBs, reconstruct vectors, and compute Gemini Cosine Similarity."""
+        if not query:
             return []
 
-        userMemories = [m for m in self.memories if m["userId"] == str(userId)]
-        if not userMemories:
+        conn = sqlite3.connect(self.dbPath)
+        cursor = conn.cursor()
+        # Database optimization: Only pull this specific user into RAM
+        cursor.execute("SELECT text, embedding FROM memories WHERE userId = ?", (str(userId),))
+        rows = cursor.fetchall()
+        conn.close()
+
+        if not rows:
             return []
 
-        queryEmbedding = self.model.encode(query)
-        memEmbeddings = np.array([m['embedding'] for m in userMemories])
+        print(f"[MEMORY] Encoding query locally: '{query}'...")
+        queryEmbedding = await asyncio.to_thread(self.model.encode, query, convert_to_numpy=True)
+        print("[MEMORY] Query encoded locally. Calculating similarity matrix...")
+        
+        # Reconstruct numpy arrays from binary SQLite BLOBs
+        userTexts = [row[0] for row in rows]
+        memEmbeddings = np.array([np.frombuffer(row[1], dtype=np.float32) for row in rows])
         
         normQuery = np.linalg.norm(queryEmbedding)
         normMem = np.linalg.norm(memEmbeddings, axis=1)
@@ -72,18 +98,20 @@ class MemoryStore:
         cosineSimilarities = dotProducts / (normMem * normQuery)
         
         scoredMemories = []
-        for i, memory in enumerate(userMemories):
+        for i, text in enumerate(userTexts):
             score = cosineSimilarities[i]
             if score >= minScore:
-                scoredMemories.append((score, memory['text']))
+                scoredMemories.append((score, text))
         
         scoredMemories.sort(key=lambda x: x[0], reverse=True)
         return [m[1] for m in scoredMemories[:topK]]
 
     def forgetUser(self, userId: str) -> None:
-        """Delete all memories for a user."""
-        initialCount = len(self.memories)
-        self.memories = [m for m in self.memories if m["userId"] != str(userId)]
-        if len(self.memories) < initialCount:
-            self._save()
-            print(f"[MEMORY] Forgot memories for user {userId}")
+        """Surgically delete all SQLite entries for a specific user."""
+        conn = sqlite3.connect(self.dbPath)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM memories WHERE userId = ?", (str(userId),))
+        deletedCount = cursor.rowcount
+        conn.commit()
+        conn.close()
+        print(f"[MEMORY DB] Deleted {deletedCount} legacy records for User {userId}.")

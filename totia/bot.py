@@ -34,7 +34,8 @@ class TotiaBot(commands.Bot):
 
     async def runKeepAlive(self):
         """Periodically pings the bot's own URL to prevent Render from spinning down."""
-        if not settings.RENDER_URL:
+        placeholder = "https://your-bot-name.onrender.com"
+        if not settings.RENDER_URL or settings.RENDER_URL == placeholder:
             return
         
         # Wait for bot setup to stabilize
@@ -78,44 +79,58 @@ class TotiaBot(commands.Bot):
         if not isCorrectChannel or isBot or isWebhook or isReplyToOthers:
             return 
         
+        print(f"[BOT] Message received from {message.author.name}: {message.clean_content}")
         await self.process_commands(message)
 
         if message.content.startswith(self.command_prefix):
             return
 
-        async with message.channel.typing():
-            cleanedMessage = message.clean_content
-            userId = str(message.author.id)
-            
-            recalledList = self.memory.recall(
-                userId=userId, 
-                query=cleanedMessage, 
-                topK=settings.MEMORY_TOP_K, 
-                minScore=settings.MEMORY_MIN_SCORE
-            )
-            
-            memoriesText = "\n- ".join(recalledList) if recalledList else ""
+        try:
+            async with message.channel.typing():
+                cleanedMessage = message.clean_content
+                userId = str(message.author.id)
+                
+                recalledList = []
+                try:
+                    print(f"[BOT] Recalling memory for {userId}...")
+                    recalledList = await self.memory.arecall(
+                        userId=userId, 
+                        query=cleanedMessage, 
+                        topK=settings.MEMORY_TOP_K, 
+                        minScore=settings.MEMORY_MIN_SCORE
+                    )
+                    print(f"[BOT] Found {len(recalledList)} memories.")
+                except Exception as memErr:
+                    print(f"[BOT] [MEMORY ERROR] Proceeding without historical context: {type(memErr).__name__} - {memErr}")
+                
+                memoriesText = "\n- ".join(recalledList) if recalledList else ""
 
-            prompt = f"last 20 chats: {history.get_history()}\n" \
-                     f"the new message: {message.author.name}: {cleanedMessage}"
+                prompt = f"last 20 chats: {history.getHistory()}\n" \
+                         f"the new message: {message.author.name}: {cleanedMessage}"
 
-            finalResponse = await client.chat(
-                prompt=prompt, 
-                bot=self, 
-                channel=message.channel, 
-                memories=memoriesText
-            )
+                finalResponse = await client.chat(
+                    prompt=prompt, 
+                    bot=self, 
+                    channel=message.channel, 
+                    memories=memoriesText
+                )
 
-            history.remember(message.author.name, cleanedMessage)
-            history.remember(self.user.name, finalResponse)
-            
-            self.memory.store(
-                userId, 
-                message.author.name, 
-                f"User ({message.author.name}): {cleanedMessage}\nBot: {finalResponse}"
-            )
+                history.remember(message.author.name, cleanedMessage)
+                history.remember(self.user.name, finalResponse)
+                
+                try:
+                    await self.memory.astore(
+                        userId, 
+                        message.author.name, 
+                        f"User ({message.author.name}): {cleanedMessage}\nBot: {finalResponse}"
+                    )
+                except Exception as memSaveErr:
+                    print(f"[BOT] [MEMORY ERROR] Failed to save interaction: {type(memSaveErr).__name__} - {memSaveErr}")
 
-        await message.reply(finalResponse)
+            await message.reply(finalResponse)
+        except Exception as msgError:
+            print(f"\n[CRITICAL BOT ERROR] Pipeline crashed on message '{cleanedMessage}': {type(msgError).__name__} - {msgError}\n")
+
 
     async def on_member_join(self, member):
         await member.send(f"Welcome to the server {member.name}")
