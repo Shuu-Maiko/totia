@@ -70,7 +70,7 @@ class TotiaBot(commands.Bot):
         if not isCorrectChannel or isBot or isWebhook or isReplyToOthers:
             return 
         
-        print(f"[BOT] Message received from {message.author.name}: {message.clean_content}")
+        print(f"[BOT] Message received from {message.author.display_name}: {message.clean_content}")
         await self.process_commands(message)
 
         if message.content.startswith(self.command_prefix):
@@ -96,8 +96,11 @@ class TotiaBot(commands.Bot):
                 
                 memoriesText = "\n- ".join(recalledList) if recalledList else ""
 
-                prompt = f"last 20 chats: {history.getHistory()}\n" \
-                         f"the new message: {message.author.name}: {cleanedMessage}"
+                import datetime
+                now_time = datetime.datetime.now().strftime("%h %d, %I:%M %p")
+                prompt = f"Current Time: {now_time}\n" \
+                         f"last 20 chats: {history.getHistory()}\n" \
+                         f"the new message: {message.author.display_name}: {cleanedMessage}"
 
                 finalResponse = await client.chat(
                     prompt=prompt, 
@@ -106,14 +109,15 @@ class TotiaBot(commands.Bot):
                     memories=memoriesText
                 )
 
-                history.remember(message.author.name, cleanedMessage)
-                history.remember(self.user.name, finalResponse)
+                history.remember(message.author.display_name, cleanedMessage)
+                bot_name = message.guild.me.display_name if message.guild else self.user.name
+                history.remember(bot_name, finalResponse)
                 
                 try:
                     await self.memory.astore(
                         userId, 
-                        message.author.name, 
-                        f"User ({message.author.name}): {cleanedMessage}\nBot: {finalResponse}"
+                        message.author.display_name, 
+                        f"User ({message.author.display_name}): {cleanedMessage}\nBot: {finalResponse}"
                     )
                 except Exception as memSaveErr:
                     print(f"[BOT] [MEMORY ERROR] Failed to save interaction: {type(memSaveErr).__name__} - {memSaveErr}")

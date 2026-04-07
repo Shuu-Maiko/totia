@@ -1,3 +1,4 @@
+import datetime
 from collections import deque
 
 class History():
@@ -6,7 +7,8 @@ class History():
         self.maxHistory = maxHistory
 
     def remember(self, user: str, message: str):
-        self.prev.append(f"{user} : {message}")
+        timestamp = datetime.datetime.now().strftime("%h %d, %I:%M %p")
+        self.prev.append(f"[{timestamp}] {user} : {message}")
         
     def getHistory(self) -> str:
         return '\n'.join(self.prev)

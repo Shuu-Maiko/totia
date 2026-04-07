@@ -29,7 +29,7 @@ def getLlm(provider: str):
         llm = ChatGoogleGenerativeAI(
             model=model,
             api_key=settings.GEMINI_API_KEY,
-            temperature=0.7,
+            temperature=0.85,
             max_output_tokens=800,
         )
     elif provider == "groq":
@@ -37,7 +37,7 @@ def getLlm(provider: str):
         llm = ChatGroq(
             model=model,
             api_key=settings.GROQ_API_KEY,
-            temperature=0.7,
+            temperature=0.85,
             max_tokens=800,
         )
     else:

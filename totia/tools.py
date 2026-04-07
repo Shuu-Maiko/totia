@@ -80,4 +80,26 @@ async def getTools(bot: commands.Bot, contextChannel: Optional[discord.abc.Messa
         except Exception as e:
             return str(e)
 
-    return [getCurrentTime, searchWeb, getUserInfo, getChannelInfo, getServerInfo, searchChannel, clearMemory]
+    @tool
+    async def searchUrbanDictionary(term: str) -> str:
+        """Search Urban Dictionary for the definition of slang, abbreviations, or modern internet terms."""
+        try:
+            import aiohttp
+            url = f"https://api.urbandictionary.com/v0/define?term={term}"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        definitions = data.get("list", [])
+                        if not definitions:
+                            return f"No definition found for '{term}'."
+                        # Get the top definition (clean up the brackets UD uses for links)
+                        top_def = definitions[0]
+                        definition = top_def.get("definition", "").replace("[", "").replace("]", "")
+                        example = top_def.get("example", "").replace("[", "").replace("]", "")
+                        return f"Definition: {definition}\nExample: {example}"
+                    return f"Urban Dictionary API returned status {response.status}."
+        except Exception as e:
+            return f"Error looking up slang: {str(e)}"
+
+    return [getCurrentTime, searchWeb, getUserInfo, getChannelInfo, getServerInfo, searchChannel, clearMemory, searchUrbanDictionary]
